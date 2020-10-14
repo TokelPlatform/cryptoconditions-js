@@ -1,0 +1,14 @@
+{
+  "scripts": {
+    "serve": "webpack-dev-server"
+  },
+  "dependencies": {
+    "hello-wasm": "^0.1.0",
+    "cryptoconditions": "^0.1.0"
+  },
+  "devDependencies": {
+    "webpack": "^4.44.1",
+    "webpack-cli": "^3.3.12",
+    "webpack-dev-server": "^3.11.0"
+  } 
+}
