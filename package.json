@@ -1,4 +1,6 @@
 {
+  "name": "cryptoconditions",
+  "version": "0.1.0",
   "scripts": {
     "serve": "webpack-dev-server"
   },
