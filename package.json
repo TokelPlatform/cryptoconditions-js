@@ -1,14 +1,10 @@
 {
-  "name": "cryptoconditions",
+  "name": "cryptoconditions-js",
   "version": "0.1.0",
   "scripts": {
-    "serve": "webpack-dev-server"
   },
   "dependencies": {
   },
   "devDependencies": {
-    "webpack": "^4.44.1",
-    "webpack-cli": "^3.3.12",
-    "webpack-dev-server": "^3.11.0"
   } 
 }
