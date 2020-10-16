@@ -5,8 +5,6 @@
     "serve": "webpack-dev-server"
   },
   "dependencies": {
-    "hello-wasm": "^0.1.0",
-    "cryptoconditions": "^0.1.0"
   },
   "devDependencies": {
     "webpack": "^4.44.1",
