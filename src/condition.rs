@@ -1,14 +1,21 @@
 use num_bigint::{BigInt, BigUint};
 use num_traits::cast::FromPrimitive;
-use secp256k1::{PublicKey, Signature, SecretKey, Message, sign};
+use libsecp256k1::{PublicKey, Signature, SecretKey, Message, sign};
 use simple_asn1::{to_der, ASN1Block, ASN1Class};
 use std::collections::HashSet;
 
+const MIXED_MODE: u32 = 0x01;
+
 pub use Condition::*;
+
+use log::Level;
+use log::info;
 
 #[derive(Clone, PartialEq, Debug, Copy)]
 pub enum ConditionType {
+    AnonType,
     PreimageType,
+    PrefixType,
     ThresholdType,
     Secp256k1Type,
     EvalType
@@ -20,17 +27,21 @@ impl ConditionType {
     fn id(&self) -> u8 {
         match self {
             PreimageType { .. } => 0,
+            PrefixType { .. } => 1,
             ThresholdType { .. } => 2,
             Secp256k1Type { .. } => 5,
-            EvalType { .. } => 15
+            EvalType { .. } => 15,
+            AnonType { .. } => 0xFF
         }
     }
     pub fn name(&self) -> String {
         match self {
             PreimageType => "preimage-sha-256".into(),
+            PrefixType => "prefix-sha-256".into(),
             ThresholdType => "threshold-sha-256".into(),
             Secp256k1Type => "secp256k1-sha-256".into(),
-            EvalType => "eval-sha-256".into()
+            EvalType => "eval-sha-256".into(),
+            AnonType => "(anon)".into()
         }
     }
     pub fn has_subtypes(&self) -> bool {
@@ -46,6 +57,11 @@ pub enum Condition {
     },
     Preimage {
         preimage: Vec<u8>,
+    },
+    Prefix {
+        prefix: Vec<u8>,
+        max_message_len: u64,
+        subcondition: *mut Condition,
     },
     Secp256k1 {
         pubkey: PublicKey,
@@ -66,6 +82,7 @@ impl Condition {
     pub fn get_type(&self) -> ConditionType {
         match self {
             Preimage { .. } => PreimageType,
+            Prefix { .. } => PrefixType,
             Threshold { .. } => ThresholdType,
             Secp256k1 { .. } => Secp256k1Type,
             Eval { .. } => EvalType,
@@ -95,6 +112,18 @@ impl Condition {
             }
             Eval { code } => sha256(code.to_vec()),
             Preimage { preimage } => sha256(preimage.to_vec()),
+            Prefix { 
+                prefix, 
+                max_message_len,
+                subcondition
+            } => {
+                let mml_asn = BigInt::from_u64(*max_message_len).unwrap().to_signed_bytes_be();
+                let mut data = asn_data(&vec![prefix.to_vec(), mml_asn ]);
+                unsafe {
+                    data.push(asn_choice(1, &vec![subcondition.as_ref().unwrap().encode_condition_asn()] ));
+                }
+                hash_asn(&ASN1Block::Sequence(0, data))
+            }
             Threshold {
                 threshold,
                 subconditions,
@@ -124,6 +153,13 @@ impl Condition {
     pub fn cost(&self) -> u64 {
         match self {
             Preimage { preimage } => preimage.len() as u64,
+            Prefix { 
+                prefix,
+                max_message_len,
+                subcondition 
+            } => unsafe {
+                (1024 as u64) + (prefix.len() as u64) + max_message_len + (subcondition.as_ref().unwrap().cost() as u64)
+            },
             Secp256k1 { .. } => 131072,
             Eval { .. } => 1048576,
             Anon { cost, .. } => *cost,
@@ -162,12 +198,24 @@ impl Condition {
         }
     }
 
-    fn encode_fulfillment_asn(&self) -> R {
+    fn encode_fulfillment_asn(&self, flags: u32) -> R {
         match self {
             Preimage { preimage } => Ok(asn_choice(
                 self.get_type().id(),
                 &asn_data(&vec![preimage.to_vec()]),
             )),
+            Prefix { 
+                prefix, 
+                max_message_len,
+                subcondition
+            } => {
+                let mml_asn = BigInt::from_u64(*max_message_len).unwrap().to_signed_bytes_be();
+                let mut data = asn_data(&vec![prefix.to_vec(), mml_asn ]);
+                unsafe {
+                    data.push(asn_choice(1, &vec![subcondition.as_ref().unwrap().encode_condition_asn()] ));
+                }
+                Ok(asn_choice(self.get_type().id(), &data))
+            },
             Secp256k1 {
                 pubkey,
                 signature: Some(signature),
@@ -182,24 +230,24 @@ impl Condition {
             Threshold {
                 threshold,
                 subconditions,
-            } => threshold_fulfillment_asn(*threshold, subconditions),
+            } => threshold_fulfillment_asn(*threshold, subconditions, flags),
             _ => return Err("Cannot encode fulfillment".into()),
         }
     }
 
-    pub fn encode_fulfillment(&self) -> Result<Vec<u8>, String> {
-        Ok(encode_asn(&self.encode_fulfillment_asn()?))
+    pub fn encode_fulfillment(&self, flags: u32) -> Result<Vec<u8>, String> {
+        Ok(encode_asn(&self.encode_fulfillment_asn(flags)?))
     }
 
     pub fn is_fulfilled(&self) -> bool {
         unimplemented!()
     }
 
-    pub fn sign_secp256k1(&mut self, secret: &SecretKey, message: &Message) -> Result<(), secp256k1::Error> {
+    pub fn sign_secp256k1(&mut self, secret: &SecretKey, message: &Message) -> Result<(), libsecp256k1::Error> {
         match self {
             Secp256k1 { pubkey, ref mut signature  } => {
                 if *pubkey == PublicKey::from_secret_key(secret) {
-                    *signature = Some(sign(message, secret)?.0);
+                    *signature = Some(sign(message, secret).0);
                 }
             },
             Threshold { ref mut subconditions, .. } => {
@@ -222,7 +270,8 @@ impl Condition {
 
 type R = Result<ASN1Block, String>;
 
-fn threshold_fulfillment_asn(threshold: u16, subconditions: &Vec<Condition>) -> R {
+fn threshold_fulfillment_asn(threshold: u16, subconditions: &Vec<Condition>, flags: u32) -> R {
+    if (flags & MIXED_MODE) != 0 { return threshold_fulfillment_asn_mixed_mode(threshold, subconditions, flags); }
     fn key_cost((c, opt_asn): &(&Condition, R)) -> (u8, u64) {
         match opt_asn {
             Ok(_) => (0, c.cost()),
@@ -231,14 +280,14 @@ fn threshold_fulfillment_asn(threshold: u16, subconditions: &Vec<Condition>) -> 
     };
     let mut subs: Vec<(&Condition, R)> = subconditions
         .iter()
-        .map(|c| (c, c.encode_fulfillment_asn()))
+        .map(|c| (c, c.encode_fulfillment_asn(flags)))
         .collect();
     subs.sort_by(|a, b| key_cost(a).cmp(&key_cost(b)));
 
     let tt = threshold as usize;
     if subs.len() >= tt && subs[tt - 1].1.is_ok() {
         Ok(asn_choice(
-            2,
+            ThresholdType.id(),
             &vec![
                 asn_choice(
                     0,
@@ -263,12 +312,62 @@ fn threshold_fulfillment_asn(threshold: u16, subconditions: &Vec<Condition>) -> 
     }
 }
 
+fn threshold_fulfillment_asn_mixed_mode(threshold: u16, subconditions: &Vec<Condition>, flags: u32) -> R {
+    info!("threshold_fulfillment_asn_mixed_mode enterred, threshold={} subconditions.len={}", threshold, subconditions.len());
+    let threshold_bytes = vec![ threshold as u8];
+    let marker = Preimage {
+        preimage: threshold_bytes // threshold.to_le_bytes().to_vec()
+    };
+    let marker_asn = marker.encode_fulfillment_asn(flags);
+    let mut ffils = vec![ marker_asn.unwrap() ];
+    info!("marker_asn={}", hex::encode(encode_asn( &marker.encode_fulfillment_asn(flags).unwrap() )));
+    let mut conds = vec![ ];
+
+    let mut i = 0;
+    while i < subconditions.len() {
+        let ffil = subconditions[i].encode_fulfillment_asn(flags);
+        match ffil {
+            Ok(c) => { ffils.push(c); info!("threshold_fulfillment_asn_mixed_mode push ffil i = {} asn={}", i,  hex::encode(encode_asn(&subconditions[i].encode_fulfillment_asn(flags).unwrap() ))); },
+            Err(e) => { conds.push(subconditions[i].encode_condition_asn()); info!("threshold_fulfillment_asn_mixed_mode push cond i = {} asn={}", i, hex::encode(encode_asn(&(subconditions[i].encode_condition_asn())) )  ); }
+        }
+        i += 1;
+        info!("threshold_fulfillment_asn_mixed_mode i = {}", i);
+    }
+    x690sort(&mut ffils);
+    x690sort(&mut conds);
+
+    Ok(asn_choice(ThresholdType.id(), &vec![ asn_choice(0, &ffils), asn_choice(1, &conds)]))
+}
+
+
+pub fn threshold_to_anon(cond: &mut Condition) {
+   
+    match cond {
+        Threshold {
+            threshold: _,
+            ref mut subconditions,
+        } => {
+            info!("subconds:");
+            for subcond in subconditions {
+                info!("subcond={}", hex::encode(encode_asn(&subcond.encode_condition_asn())));
+
+                if subcond.get_type() == ThresholdType {
+                    *subcond = subcond.to_anon();
+                    info!("subcond after={}", hex::encode(encode_asn(&subcond.encode_condition_asn())));
+                }
+            }
+        }
+        _ => { }
+    }
+}
+
 fn x690sort(asns: &mut Vec<ASN1Block>) {
     asns.sort_by(|b, a| { // reversed
         let va = encode_asn(a);
         let vb = encode_asn(b);
         //va.len().cmp(&vb.len()).then_with(|| va.cmp(&vb))
-        va.len().cmp(&vb.len()).then_with(|| vb.cmp(&va))
+        //va.len().cmp(&vb.len()).then_with(|| vb.cmp(&va))
+        vb.cmp(&va)
     })
 }
 
@@ -295,6 +394,26 @@ pub mod internal {
         }
         buf.truncate(1 + (max_id >> 3) as usize);
         buf.insert(0, 7 - max_id % 8);
+
+        let mut asubtypes: [u8; 4] = [0,0,0,0];
+        let mut i = 0;
+        while i < buf.len()   {
+            asubtypes[i] = buf[i]; 
+            info!("buf[i]={}", buf[i]);
+            i += 1;
+        }
+        info!("u32::from_le_bytes(buf)={}", u32::from_le_bytes(asubtypes));
+
+        let mut mask : u32 = 0;
+        let mut i = 0;
+        while i < asubtypes.len()*8 {
+            if asubtypes[i >> 3] & (1 << (7 - i % 8)) != 0 {
+                mask |= 1 << i;
+            }
+            i = i + 1;
+        }
+        info!("mask = {}", mask);
+
         buf
     }
 

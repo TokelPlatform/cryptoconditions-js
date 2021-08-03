@@ -1,5 +1,5 @@
 use num_bigint::{BigInt, BigUint};
-use secp256k1::{PublicKey, Signature, SecretKey, Message, sign};
+use libsecp256k1::{PublicKey, Signature, SecretKey, Message, sign};
 
 
 /*use num_traits::cast::FromPrimitive;
@@ -142,7 +142,7 @@ fn parse_js_cond(js_cond: &JsValue) -> Result<Condition, JsValue>
                         
             let js_signature = js_sys::Reflect::get(&js_cond, &JsValue::from_str("signature"))?;
             let sig_value = match js_signature.is_string() {
-                true => Some(Signature::parse_slice(&hex::decode( js_signature.as_string().unwrap() ).unwrap()).unwrap()),
+                true => Some(Signature::parse_standard_slice(&hex::decode( js_signature.as_string().unwrap() ).unwrap()).unwrap()),
                 false => None,
             };
 
@@ -151,6 +151,42 @@ fn parse_js_cond(js_cond: &JsValue) -> Result<Condition, JsValue>
                 signature: sig_value
             };
             info!("secp step 2");
+
+            Ok(cond)
+        },
+        "(anon)" => {
+            let js_fingerprint = js_sys::Reflect::get(&js_cond, &JsValue::from_str("fingerprint"))?;
+            if js_fingerprint.is_null()  {
+                return Err("no \'fingerprint\" property".into());
+            }
+            let fingerprint_decoded = base64::decode( js_fingerprint.as_string().unwrap() ).unwrap();
+
+            let js_cost = js_sys::Reflect::get(&js_cond, &JsValue::from_str("cost"))?;
+            if js_cost.is_null()  {
+                return Err("no \'cost\" property".into());
+            }
+            let cost_decoded = js_cost.as_string().unwrap().parse().unwrap();
+
+            let mut subtypes_decoded = vec![0,0,0,0];
+            let js_subtypes = js_sys::Reflect::get(&js_cond, &JsValue::from_str("subtypes"))?;
+            if !js_subtypes.is_null()  {
+                let subtypes_bytes = js_subtypes.as_string().unwrap().parse::<u32>().unwrap().to_le_bytes();
+                let mut i = 0;
+                while i < subtypes_bytes.len() && i < subtypes_decoded.len() {
+                    subtypes_decoded[i] = subtypes_bytes[i]; 
+                    info!("subtypes_bytes[i]={}", subtypes_bytes[i]);
+                    i += 1;
+                }
+            }
+
+            
+            let cond = Anon {
+                //code: js_code.as_string().unwrap().parse::<u32>().unwrap().to_le_bytes().iter().cloned().collect()
+                cond_type: AnonType,
+                fingerprint: fingerprint_decoded,
+                cost: cost_decoded,
+                subtypes: internal::unpack_set(subtypes_decoded)
+            };
 
             Ok(cond)
         },
@@ -170,7 +206,7 @@ fn make_js_cond(cond: Condition) -> Result<JsValue, JsValue>
         Secp256k1 { pubkey, signature } => {
             js_sys::Reflect::set(&js_cond, &JsValue::from_str("type"), &JsValue::from_str("secp256k1-sha-256"))?;
             js_sys::Reflect::set(&js_cond, &JsValue::from_str("publicKey"), &JsValue::from_str(&hex::encode( &pubkey.serialize_compressed() )))?;
-            info!("checking signature...");
+            info!("searching for signature...");
             if signature != None {
                 info!("found signature!");
                 js_sys::Reflect::set(&js_cond, &JsValue::from_str("signature"), &JsValue::from_str(&hex::encode( &signature.unwrap().serialize() )))?;
@@ -182,6 +218,9 @@ fn make_js_cond(cond: Condition) -> Result<JsValue, JsValue>
         }
         Preimage { preimage } => {
             js_sys::Reflect::set(&js_cond, &JsValue::from_str("type"), &JsValue::from_str("preimage-sha-256"))?;  // TODO: unfinished...
+        }
+        Prefix { prefix, max_message_len, subcondition } => {
+            js_sys::Reflect::set(&js_cond, &JsValue::from_str("type"), &JsValue::from_str("prefix-sha-256"))?;  // TODO: unfinished...
         }
         Threshold {
             threshold,
@@ -212,6 +251,7 @@ fn make_js_cond(cond: Condition) -> Result<JsValue, JsValue>
                 let mut i = 0;
                 while i < vsubtypes.len()   {
                     asubtypes[i] = vsubtypes[i]; 
+                    info!("vsubtypes[i]={}", vsubtypes[i]);
                     i += 1;
                 }
                 /*asubtypes[1] = vsubtypes[1]; 
@@ -223,6 +263,9 @@ fn make_js_cond(cond: Condition) -> Result<JsValue, JsValue>
                 //    Err(o) => Err("Internal error: expected subtypes a Vec of 4"),
                 //};
                 //js_sys::Reflect::set(&js_cond, &JsValue::from_str("subtypes"), &JsValue::from_str(  &u32::from_be_bytes(asubtypes).to_string()  ))?;
+                info!("u32::from_be_bytes(asubtypes).to_string()={}", u32::from_be_bytes(asubtypes).to_string());
+                info!("u32::from_le_bytes(asubtypes)={}", u32::from_le_bytes(asubtypes));
+
                 js_sys::Reflect::set(&js_cond, &JsValue::from_str("subtypes"), &JsValue::from_str(  &u32::from_be_bytes(asubtypes).to_string()  ))?;
 
             }
@@ -255,7 +298,7 @@ pub fn js_cc_fulfillment_binary(js_cond: &JsValue) -> Result<Uint8ClampedArray, 
         Ok(c) => c,
         Err(e) => { info!("could not parse cond"); return Err(JsValue::from_str("could parse cc")) },
     };
-    let encoded_ffil = cond.encode_fulfillment()?;
+    let encoded_ffil = cond.encode_fulfillment(0)?;
 
     //Ok(JsValue::from_str(&String::from_utf8_lossy(&encoded_cond)))
     //Ok(JsValue::from_str(&hex::encode(&encoded_cond)))
@@ -264,6 +307,20 @@ pub fn js_cc_fulfillment_binary(js_cond: &JsValue) -> Result<Uint8ClampedArray, 
     //Ok(Uint8ClampedArray::from(JsValue::from_str("00")))
 
     //let jsthreshold = js_sys::Reflect::get(&target, "Threshold")?;
+}
+
+#[wasm_bindgen]
+pub fn js_cc_fulfillment_binary_mixed(js_cond: &JsValue) -> Result<Uint8ClampedArray, JsValue> 
+{
+    console_log::init_with_level(Level::Debug);
+    
+    let cond = match parse_js_cond(js_cond)  {
+        Ok(c) => c,
+        Err(e) => { info!("could not parse cond: {}", e.as_string().unwrap()); return Err(JsValue::from_str("could parse cc")) },
+    };
+    let encoded_ffil = cond.encode_fulfillment(1)?;
+
+    Ok(Uint8ClampedArray::from(encoded_ffil.as_slice()))
 }
 
 #[wasm_bindgen]
@@ -313,6 +370,23 @@ pub fn js_read_ccondition_binary(js_bin: &Uint8ClampedArray) -> Result<JsValue, 
     //Ok(JsValue::from_str(&hex::encode(&encoded_cond)))
     Ok(js_cond)
     //let jsthreshold = js_sys::Reflect::get(&target, "Threshold")?;
+}
+
+#[wasm_bindgen]
+pub fn js_cc_threshold_to_anon(js_cond: &JsValue) -> Result<JsValue, JsValue> 
+{
+    console_log::init_with_level(Level::Debug);
+    info!("js_cc_threshold_to_anon enterred");
+    
+    let mut cond = match parse_js_cond(js_cond)  {
+        Ok(c) => c,
+        Err(e) => { info!("could not parse cond"); return Err(JsValue::from_str("could parse cc")) },
+    };
+    info!("calling threshold_to_anon:");
+    threshold_to_anon(&mut cond);
+
+    let js_cond = make_js_cond(cond)?;
+    Ok(js_cond)
 }
 
 //}

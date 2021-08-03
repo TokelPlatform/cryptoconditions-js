@@ -1,6 +1,6 @@
 use num_bigint::BigInt;
 use num_traits::cast::ToPrimitive;
-use secp256k1::{PublicKey, Signature};
+use libsecp256k1::{PublicKey, Signature};
 use simple_asn1::{from_der, ASN1Block, ASN1Class};
 use std::collections::HashSet;
 
@@ -125,7 +125,7 @@ fn parse_fulfillment(parser: &mut Parser) -> R<Condition> {
         2 => parse_threshold(&mut p),
         5 => parse_secp256k1(&mut p),
         15 => parse_eval(&mut p),
-        _ => Err(err("Inavalid Condition ASN")),
+        _ => Err(err("Invalid Condition ASN")),
     }?;
     let () = p.end()?;
     Ok(o)
@@ -161,7 +161,7 @@ fn parse_preimage(parser: &mut Parser) -> R<Condition> {
 fn parse_secp256k1(parser: &mut Parser) -> R<Condition> {
     match (
         PublicKey::parse_slice(&parser.buf(0)?, None),
-        Signature::parse_slice(&parser.buf(1)?),
+        Signature::parse_standard_slice(&parser.buf(1)?),
     ) {
         (Ok(pubkey), Ok(sig)) => Ok(Secp256k1 {
             pubkey,
