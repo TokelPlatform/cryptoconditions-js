@@ -333,6 +333,8 @@ fn threshold_fulfillment_asn_mixed_mode(threshold: u16, subconditions: &Vec<Cond
         i += 1;
         info!("threshold_fulfillment_asn_mixed_mode i = {}", i);
     }
+
+    // x690 Elements of a Set are encoded in sorted order, based on their tag value
     x690sort(&mut ffils);
     x690sort(&mut conds);
 
