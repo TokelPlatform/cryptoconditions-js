@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 asn1 = { git = "https://github.com/alex/rust-asn1", branch = "main" }
-libsecp256k1 = "0.2.2"
+libsecp256k1 = "0.6.0"
 simple_asn1 = { git = "https://github.com/ssadler/simple_asn1" }
 num-bigint = "0.2.6"
 num-traits = "0.2"
