@@ -1,5 +1,5 @@
 //const js = import("./node_modules/hello-wasm/hello_wasm.js");
-const ccimp = import("cryptoconditions/cryptoconditions.js");
+const ccimp = import("pkg/cryptoconditions.js");
 
 var json = "{   \
         \"type\":	\"threshold-sha-256\",  \
