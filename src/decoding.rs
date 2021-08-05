@@ -23,12 +23,13 @@ pub fn decode_condition(buf: &[u8]) -> R<Condition> {
     parse_condition(&mut Parser::from_buf(buf)?)
 }
 
-fn condition_type_from_id(id: u8) -> Result<ConditionType, ConditionDecodeError> {
+pub fn condition_type_from_id(id: u8) -> Result<ConditionType, ConditionDecodeError> {
     Ok(match id {
         0 => PreimageType,
         2 => ThresholdType,
         5 => Secp256k1Type,
         15 => EvalType,
+        0xff => AnonType,
         _ => Err(ConditionDecodeError(format!("Unknown condition type id: {:?}", id)))?
     })
 }

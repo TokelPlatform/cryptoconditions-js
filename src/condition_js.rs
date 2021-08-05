@@ -66,10 +66,8 @@ fn parse_js_cond(js_cond: &JsValue) -> Result<Condition, JsValue>
             if !js_sys::Array::is_array(&js_subfulfillments) {
                 return Err("no \'subfulfillments\" array".into());
             }
-            info!("threshold step 1");
             
             let array = js_sys::Array::from(&js_subfulfillments);
-            info!("threshold step 2 array.size={}", array.length().to_string());
 
             let mut subconds = vec![];
             /*array.for_each(&mut |elem, _, _| {
@@ -85,16 +83,13 @@ fn parse_js_cond(js_cond: &JsValue) -> Result<Condition, JsValue>
             });*/
 
             for elem in array.iter() {
-                info!("threshold step 2.1");
 
                 let subcond = parse_js_cond(&elem)?; // propagate Err up
-                info!("threshold step 2.2");
 
                 subconds.push(subcond);
             }
 
-            info!("threshold step 3");
-            info!("threshold step 3 js_threshold is str={} obj={} null={} function={} falsy={} symbol={}", js_threshold.is_string(), js_threshold.is_object(), js_threshold.is_null(), js_threshold.is_function(), js_threshold.is_falsy(), js_threshold.is_symbol());
+            //info!("threshold step 3 js_threshold is str={} obj={} null={} function={} falsy={} symbol={}", js_threshold.is_string(), js_threshold.is_object(), js_threshold.is_null(), js_threshold.is_function(), js_threshold.is_falsy(), js_threshold.is_symbol());
             //info!("threshold step 3 str={}", js_threshold.as_string().unwrap());
 
             /*let threshold_val = match js_threshold.dyn_into::<bool>() {
@@ -102,13 +97,12 @@ fn parse_js_cond(js_cond: &JsValue) -> Result<Condition, JsValue>
                 Err(e) => return Err(JsValue::from_str("could no parse threshold")), 
             };*/
             let threshold_val = cast_js_value_to_u16(&js_threshold);
-            info!("threshold step 3.1 value {}", threshold_val);
 
             let cond = Threshold {
                 threshold: threshold_val as u16,
                 subconditions: subconds
             };
-            info!("threshold step 4 threshold_val={}", threshold_val);
+            //info!("threshold step 4 threshold_val={}", threshold_val);
 
             Ok(cond)
         },
@@ -118,16 +112,15 @@ fn parse_js_cond(js_cond: &JsValue) -> Result<Condition, JsValue>
                 return Err("no \'code\" property".into());
             }
 
-            info!("eval step 0, code={}", js_code.as_string().unwrap());
+            //info!("eval step 0, code={}", js_code.as_string().unwrap());
             let code_decoded = base64::decode( js_code.as_string().unwrap() ).unwrap();
-            info!("eval step 1, code={}", hex::encode( &code_decoded ));
+            //info!("eval step 1, code={}", hex::encode( &code_decoded ));
             //info!("eval step 1, code={}", js_code.as_string().unwrap().parse::<u32>().unwrap());
             
             let cond = Eval {
                 //code: js_code.as_string().unwrap().parse::<u32>().unwrap().to_le_bytes().iter().cloned().collect()
                 code: code_decoded
             };
-            info!("eval step 2");
 
 
             Ok(cond)
@@ -137,7 +130,6 @@ fn parse_js_cond(js_cond: &JsValue) -> Result<Condition, JsValue>
             if js_publicKey.is_null()  {
                 return Err("no \'publicKey\" property".into());
             }
-            info!("secp step 1");
             let pk = hex::decode( js_publicKey.as_string().unwrap() ).unwrap();
                         
             let js_signature = js_sys::Reflect::get(&js_cond, &JsValue::from_str("signature"))?;
@@ -150,22 +142,30 @@ fn parse_js_cond(js_cond: &JsValue) -> Result<Condition, JsValue>
                 pubkey: PublicKey::parse_slice(&pk, None).unwrap(),
                 signature: sig_value
             };
-            info!("secp step 2");
 
             Ok(cond)
         },
         "(anon)" => {
+            let js_cond_type = js_sys::Reflect::get(&js_cond, &JsValue::from_str("cond_type"))?;
+            if js_cond_type.is_null()  {
+                return Err("no \'cond_type\' property".into());
+            }        
+            let cond_type_decoded = js_cond_type.as_string().unwrap().parse::<u8>().unwrap();
+            info!("cond_type_decoded={}", cond_type_decoded);
+
             let js_fingerprint = js_sys::Reflect::get(&js_cond, &JsValue::from_str("fingerprint"))?;
             if js_fingerprint.is_null()  {
-                return Err("no \'fingerprint\" property".into());
+                return Err("no \'fingerprint\' property".into());
             }
             let fingerprint_decoded = base64::decode( js_fingerprint.as_string().unwrap() ).unwrap();
+            info!("fingerprint_decoded={}", hex::encode(&fingerprint_decoded));
 
             let js_cost = js_sys::Reflect::get(&js_cond, &JsValue::from_str("cost"))?;
             if js_cost.is_null()  {
-                return Err("no \'cost\" property".into());
+                return Err("no \'cost\' property".into());
             }
             let cost_decoded = js_cost.as_string().unwrap().parse().unwrap();
+            info!("cost_decoded={}", cost_decoded);
 
             let mut subtypes_decoded = vec![0,0,0,0];
             let js_subtypes = js_sys::Reflect::get(&js_cond, &JsValue::from_str("subtypes"))?;
@@ -181,11 +181,10 @@ fn parse_js_cond(js_cond: &JsValue) -> Result<Condition, JsValue>
 
             
             let cond = Anon {
-                //code: js_code.as_string().unwrap().parse::<u32>().unwrap().to_le_bytes().iter().cloned().collect()
-                cond_type: AnonType,
+                cond_type:  condition_type_from_id(cond_type_decoded).unwrap(),
                 fingerprint: fingerprint_decoded,
                 cost: cost_decoded,
-                subtypes: internal::unpack_set(subtypes_decoded)
+                subtypes: internal::unpack_set(subtypes_decoded)  // internal::unpack_set(vec![0x20, 0, 0, 0]) 
             };
 
             Ok(cond)
@@ -237,13 +236,14 @@ fn make_js_cond(cond: Condition) -> Result<JsValue, JsValue>
 
         }
         Anon { ref fingerprint, ref cost, ref subtypes, .. } => {
+            js_sys::Reflect::set(&js_cond, &JsValue::from_str("cond_type"), &JsValue::from_str( &cond.get_type().id().to_string() ))?;
             js_sys::Reflect::set(&js_cond, &JsValue::from_str("type"), &JsValue::from_str("(anon)"))?;
             js_sys::Reflect::set(&js_cond, &JsValue::from_str("fingerprint"), &JsValue::from_str(&base64::encode( fingerprint )))?;
             js_sys::Reflect::set(&js_cond, &JsValue::from_str("cost"), &JsValue::from_str( &cost.to_string() ))?;
             if  cond.get_type().has_subtypes()   {
                 let vsubtypes = internal::pack_set(subtypes.clone());
                 // convert vec[4] to u32
-                info!("vsubtypes.len {}", vsubtypes.len());
+                info!("make_js_cond() vsubtypes.len {}", vsubtypes.len());
                 if vsubtypes.len() > 4 {
                     return Err(JsValue::from("Internal error: expected subtypes as Vec of 4"));
                 }
@@ -251,7 +251,7 @@ fn make_js_cond(cond: Condition) -> Result<JsValue, JsValue>
                 let mut i = 0;
                 while i < vsubtypes.len()   {
                     asubtypes[i] = vsubtypes[i]; 
-                    info!("vsubtypes[i]={}", vsubtypes[i]);
+                    info!("make_js_cond() vsubtypes[i]={}", vsubtypes[i]);
                     i += 1;
                 }
                 /*asubtypes[1] = vsubtypes[1]; 
@@ -263,12 +263,12 @@ fn make_js_cond(cond: Condition) -> Result<JsValue, JsValue>
                 //    Err(o) => Err("Internal error: expected subtypes a Vec of 4"),
                 //};
                 //js_sys::Reflect::set(&js_cond, &JsValue::from_str("subtypes"), &JsValue::from_str(  &u32::from_be_bytes(asubtypes).to_string()  ))?;
-                info!("u32::from_be_bytes(asubtypes).to_string()={}", u32::from_be_bytes(asubtypes).to_string());
-                info!("u32::from_le_bytes(asubtypes)={}", u32::from_le_bytes(asubtypes));
+                info!("make_js_cond() u32::from_be_bytes(asubtypes).to_string()={}", u32::from_be_bytes(asubtypes).to_string());
+                info!("make_js_cond() u32::from_le_bytes(asubtypes)={}", u32::from_le_bytes(asubtypes));
 
-                js_sys::Reflect::set(&js_cond, &JsValue::from_str("subtypes"), &JsValue::from_str(  &u32::from_be_bytes(asubtypes).to_string()  ))?;
-
+                js_sys::Reflect::set(&js_cond, &JsValue::from_str("subtypes"), &JsValue::from_str(  &u32::from_le_bytes(asubtypes).to_string()  ))?;
             }
+            //js_sys::Reflect::set(&js_cond, &JsValue::from_str("subtypes"), &JsValue::from_str(  "32"  ))?;
         }
     }
     Ok(JsValue::from(js_cond))

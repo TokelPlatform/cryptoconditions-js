@@ -49,11 +49,11 @@ var callCC = async function () {
         //var r = cc.js_cc_condition_binary(cond); 
         //console.log("result=", r, ' type=', typeof r, 'hex=', Buffer.from(r.buffer).toString('hex'));
 
-        //console.log("calling js_cc_threshold_to_anon...");
-        //var anon = cc.js_cc_threshold_to_anon(cond); 
-        //console.log("anon=", anon);
+        console.log("calling js_cc_threshold_to_anon...");
+        var anon = cc.js_cc_threshold_to_anon(cond); 
+        console.log("anon=", anon);
 
-        var rffil = cc.js_cc_fulfillment_binary_mixed(cond); 
+        var rffil = cc.js_cc_fulfillment_binary_mixed(anon); 
         console.log("rffil=", rffil, ' type=', typeof rffil, 'hex=', Buffer.from(rffil.buffer).toString('hex'));
     }
     catch(err) {
