@@ -4,7 +4,7 @@ use libsecp256k1::{PublicKey, Signature, SecretKey, Message, sign};
 use simple_asn1::{to_der, ASN1Block, ASN1Class};
 use std::collections::HashSet;
 
-const MIXED_MODE: u32 = 0x01;
+pub const MIXED_MODE: u32 = 0x01;
 
 pub use Condition::*;
 

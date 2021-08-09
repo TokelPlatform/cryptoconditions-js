@@ -296,7 +296,7 @@ pub fn js_cc_fulfillment_binary(js_cond: &JsValue) -> Result<Uint8ClampedArray, 
     
     let cond = match parse_js_cond(js_cond)  {
         Ok(c) => c,
-        Err(e) => { info!("could not parse cond"); return Err(JsValue::from_str("could parse cc")) },
+        Err(e) => { info!("could not parse cond"); return Err(JsValue::from_str("rustlibcc: could parse cc")) },
     };
     let encoded_ffil = cond.encode_fulfillment(0)?;
 
@@ -316,9 +316,9 @@ pub fn js_cc_fulfillment_binary_mixed(js_cond: &JsValue) -> Result<Uint8ClampedA
     
     let cond = match parse_js_cond(js_cond)  {
         Ok(c) => c,
-        Err(e) => { info!("could not parse cond: {}", e.as_string().unwrap()); return Err(JsValue::from_str("could parse cc")) },
+        Err(e) => { info!("could not parse cond: {}", e.as_string().unwrap()); return Err(JsValue::from_str("rustlibcc: could parse cc")) },
     };
-    let encoded_ffil = cond.encode_fulfillment(1)?;
+    let encoded_ffil = cond.encode_fulfillment(MIXED_MODE)?;
 
     Ok(Uint8ClampedArray::from(encoded_ffil.as_slice()))
 }
@@ -336,7 +336,7 @@ pub fn js_sign_secp256k1(js_cond: &JsValue, uca_secret_key: &Uint8ClampedArray, 
 
     let result = match cond.sign_secp256k1(&secret_key, &msg) {
         Ok(()) => (),
-        Err(e) => return Err(JsValue::from_str("could sign cc")),
+        Err(e) => return Err(JsValue::from_str("rustlibcc: could sign cc")),
     };
 
     let js_signed_cond = make_js_cond(cond)?;
@@ -361,7 +361,26 @@ pub fn js_read_ccondition_binary(js_bin: &Uint8ClampedArray) -> Result<JsValue, 
     //let cond = decode_condition(&js_bin.to_vec()).unwrap();
     let cond: Condition = match decode_condition(&js_bin.to_vec()) {
             Ok(c) => c,
-            Err(e) => return Err(JsValue::from_str("could not decode condition")),
+            Err(e) => return Err(JsValue::from_str("rustlibcc: could not decode condition")),
+        };
+    let js_cond = make_js_cond(cond)?;
+
+    //Ok(JsValue::from_str(&String::from_utf8_lossy(&encoded_cond)))
+    //Ok(JsValue::from_str(&hex::encode(&encoded_cond)))
+    //Ok(JsValue::from_str(&hex::encode(&encoded_cond)))
+    Ok(js_cond)
+    //let jsthreshold = js_sys::Reflect::get(&target, "Threshold")?;
+}
+
+#[wasm_bindgen]
+pub fn js_read_fulfillment_binary_mixed(js_bin: &Uint8ClampedArray) -> Result<JsValue, JsValue> 
+{
+    console_log::init_with_level(Level::Debug);
+    
+    //let cond = decode_condition(&js_bin.to_vec()).unwrap();
+    let cond: Condition = match decode_fulfillment(&js_bin.to_vec(), MIXED_MODE) {
+            Ok(c) => c,
+            Err(e) => return Err(JsValue::from_str(&("rustlibcc: could not decode fulfillment mixed mode: ".to_owned() + &e.0))),
         };
     let js_cond = make_js_cond(cond)?;
 
@@ -380,7 +399,7 @@ pub fn js_cc_threshold_to_anon(js_cond: &JsValue) -> Result<JsValue, JsValue>
     
     let mut cond = match parse_js_cond(js_cond)  {
         Ok(c) => c,
-        Err(e) => { info!("could not parse cond"); return Err(JsValue::from_str("could parse cc")) },
+        Err(e) => { info!("could not parse cond"); return Err(JsValue::from_str("rustlibcc: could parse cc")) },
     };
     info!("calling threshold_to_anon:");
     threshold_to_anon(&mut cond);

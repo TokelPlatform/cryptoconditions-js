@@ -12,15 +12,15 @@ pub struct ConditionDecodeError(pub String);
 
 type R<T> = Result<T, ConditionDecodeError>;
 
-pub fn decode_fulfillment(buf: &[u8]) -> R<Condition> {
+pub fn decode_fulfillment(buf: &[u8], flags: u32) -> R<Condition> {
     let mut p = Parser::from_buf(buf)?;
-    let o = parse_fulfillment(&mut p);
+    let o = parse_fulfillment(&mut p, flags);
     let () = p.end()?;
     o
 }
 
 pub fn decode_condition(buf: &[u8]) -> R<Condition> {
-    parse_condition(&mut Parser::from_buf(buf)?)
+    parse_condition(&mut Parser::from_buf(buf)?, 0)
 }
 
 pub fn condition_type_from_id(id: u8) -> Result<ConditionType, ConditionDecodeError> {
@@ -60,13 +60,13 @@ impl Parser {
             Err(err("Unexpected identifier in ASN"))
         }
     }
-    fn many<F, T>(&mut self, f: F) -> R<Vec<T>>
+    fn many<F, T>(&mut self, f: F, flags: u32) -> R<Vec<T>>
     where
-        F: Fn(&mut Parser) -> R<T>,
+        F: Fn(&mut Parser, u32) -> R<T>,
     {
         let mut out = Vec::new();
         while !self.0.is_empty() {
-            out.push(f(self)?);
+            out.push(f(self, flags)?);
         }
         Ok(out)
     }
@@ -118,12 +118,12 @@ impl Parser {
     }
 }
 
-fn parse_fulfillment(parser: &mut Parser) -> R<Condition> {
+fn parse_fulfillment(parser: &mut Parser, flags: u32) -> R<Condition> {
     let (tid, mut p) = parser.any()?;
     //let () = parser.end()?;
     let o = match tid {
         0 => parse_preimage(&mut p),
-        2 => parse_threshold(&mut p),
+        2 => parse_threshold(&mut p, flags),
         5 => parse_secp256k1(&mut p),
         15 => parse_eval(&mut p),
         _ => Err(err("Invalid Condition ASN")),
@@ -132,7 +132,7 @@ fn parse_fulfillment(parser: &mut Parser) -> R<Condition> {
     Ok(o)
 }
 
-fn parse_condition(top_parser: &mut Parser) -> R<Condition> {
+fn parse_condition(top_parser: &mut Parser, flags: u32) -> R<Condition> {
     let (type_id, mut parser) = top_parser.any()?;
     let cond_type = condition_type_from_id(type_id)?;
     let () = top_parser.end()?;
@@ -172,14 +172,41 @@ fn parse_secp256k1(parser: &mut Parser) -> R<Condition> {
     }
 }
 
-fn parse_threshold(parser: &mut Parser) -> R<Condition> {
-    let mut ffills = parser.container(0)?.many(parse_fulfillment)?;
-    let mut conds = parser.container(1)?.many(parse_condition)?;
+fn parse_threshold(parser: &mut Parser, flags: u32) -> R<Condition> {
+    if flags & MIXED_MODE != 0 { return parse_threshold_mixed(parser, flags); }
+    let mut ffills = parser.container(0)?.many(parse_fulfillment, flags)?;
+    let mut conds = parser.container(1)?.many(parse_condition, flags)?;
     let () = parser.end()?;
     let t = ffills.len() as u16;
     ffills.append(&mut conds);
     Ok(Threshold {
         threshold: t,
+        subconditions: ffills,
+    })
+}
+
+fn parse_threshold_mixed(parser: &mut Parser, flags: u32) -> R<Condition> {
+    let mut ffills = parser.container(0)?.many(parse_fulfillment, flags)?;
+    let conds = parser.container(1)?.many(parse_condition, flags)?;
+    let () = parser.end()?;
+    if ffills.len() == 0 { return Err(err("no fulfillments")); }
+    let t;
+    match &ffills[0] {
+        Preimage{ preimage } => {
+            t = preimage[0];
+        }
+        _ => { return Err(err("incorrect mixed mode threshold condition")); }
+    }
+
+    if (t as usize) > (ffills.len()-1 + conds.len()) { return Err(err("incorrect mixed mode threshold value")); }
+
+    ffills.remove(0);
+    for i in 0..conds.len() {
+        ffills.push(conds[i].to_anon());
+    } 
+
+    Ok(Threshold {
+        threshold: t as u16,
         subconditions: ffills,
     })
 }
