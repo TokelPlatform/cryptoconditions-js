@@ -2,6 +2,7 @@
 //var ccimp = import('./pkg/cryptoconditions.js');
 var ccimp = require('./pkg/cryptoconditions.js');
 
+
 //import * as ccimp from "./pkg/cryptoconditions.js";
 
 var callCC = async function () {
@@ -24,7 +25,7 @@ var callCC = async function () {
 
     //let cond = JSON.parse(json);
 
-    let cond = {
+    /*let cond = {
         type:	"threshold-sha-256",
         threshold:	2,
         subfulfillments:	[{
@@ -40,7 +41,7 @@ var callCC = async function () {
           }]   
         };
     
-    console.log("cond=", cond);
+    console.log("cond=", cond);*/
 
     //ccimp.then(ccjs => { 
     try {
@@ -49,12 +50,17 @@ var callCC = async function () {
         //var r = cc.js_cc_condition_binary(cond); 
         //console.log("result=", r, ' type=', typeof r, 'hex=', Buffer.from(r.buffer).toString('hex'));
 
-        console.log("calling js_cc_threshold_to_anon...");
+        /*console.log("calling js_cc_threshold_to_anon...");
         var anon = cc.js_cc_threshold_to_anon(cond); 
         console.log("anon=", anon);
 
         var rffil = cc.js_cc_fulfillment_binary_mixed(anon); 
-        console.log("rffil=", rffil, ' type=', typeof rffil, 'hex=', Buffer.from(rffil.buffer).toString('hex'));
+        console.log("rffil=", rffil, ' type=', typeof rffil, 'hex=', Buffer.from(rffil.buffer).toString('hex'));*/
+
+        var ffil = "a23ba00aa003800102af038001f5a12da22b80207dfebaac73f82b11b3ea72b0f612caa50eefd407c49e2fcc10822820cb91f91e810302040082020204";
+        var ffilbuf = Buffer.from(ffil, 'hex');
+        var parsed_cond = cc.js_read_fulfillment_binary_mixed(ffilbuf);
+        console.log("parsed_cond=", parsed_cond);
     }
     catch(err) {
         console.log("err=", err);
