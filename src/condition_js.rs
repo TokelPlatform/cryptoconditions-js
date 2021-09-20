@@ -392,6 +392,20 @@ pub fn js_read_fulfillment_binary_mixed(js_bin: &Uint8ClampedArray) -> Result<Js
 }
 
 #[wasm_bindgen]
+pub fn js_read_fulfillment_binary(js_bin: &Uint8ClampedArray) -> Result<JsValue, JsValue> 
+{
+    console_log::init_with_level(Level::Debug);
+    
+    //let cond = decode_condition(&js_bin.to_vec()).unwrap();
+    let cond: Condition = match decode_fulfillment(&js_bin.to_vec(), 0) {
+            Ok(c) => c,
+            Err(e) => return Err(JsValue::from_str(&("rustlibcc: could not decode fulfillment: ".to_owned() + &e.0))),
+        };
+    let js_cond = make_js_cond(cond)?;
+    Ok(js_cond)
+}
+
+#[wasm_bindgen]
 pub fn js_cc_threshold_to_anon(js_cond: &JsValue) -> Result<JsValue, JsValue> 
 {
     console_log::init_with_level(Level::Debug);

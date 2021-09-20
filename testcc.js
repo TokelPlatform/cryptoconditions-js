@@ -57,10 +57,17 @@ var callCC = async function () {
         var rffil = cc.js_cc_fulfillment_binary_mixed(anon); 
         console.log("rffil=", rffil, ' type=', typeof rffil, 'hex=', Buffer.from(rffil.buffer).toString('hex'));*/
 
-        var ffil = "a23ba00aa003800102af038001f5a12da22b80207dfebaac73f82b11b3ea72b0f612caa50eefd407c49e2fcc10822820cb91f91e810302040082020204";
+        /*var ffilmm = "a23ba00aa003800102af038001f5a12da22b80207dfebaac73f82b11b3ea72b0f612caa50eefd407c49e2fcc10822820cb91f91e810302040082020204";
+        var ffilbufmm = Buffer.from(ffil, 'hex');
+        var parsed_cond = cc.js_read_fulfillment_binary_mixed(ffilbufmm);
+        console.log("parsed_cond=", parsed_cond);        
+        */
+
+        var ffil = "a276a072a26ba067a5658021035d3b0f2e98cf0fba19f80880ec7c08d770c6cf04aa5639bc57130d5ac54874db814077f957e93f9f291a39ce5b3a8451e4bf94fc6f3a2f4c18e701c796f1132308fc07546f7f304907d920c68a07bb398aa817c63898347d6638064dac9cf2cbf6a3a100af038001f5a100";
         var ffilbuf = Buffer.from(ffil, 'hex');
-        var parsed_cond = cc.js_read_fulfillment_binary_mixed(ffilbuf);
-        console.log("parsed_cond=", parsed_cond);
+        var parsed_cond2 = cc.js_read_fulfillment_binary(ffilbuf);
+
+        console.log("parsed_cond2=", parsed_cond2);
     }
     catch(err) {
         console.log("err=", err);
