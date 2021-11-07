@@ -95,7 +95,7 @@ impl Condition {
         let cost = BigInt::from_u64(self.cost()).unwrap().to_signed_bytes_be();
         let mut parts = vec![fingerprint, cost];
         if self.has_subtypes() {
-            info!("get_subtypes()={}", hex::encode(pack_set(self.get_subtypes())));
+            //info!("get_subtypes()={}", hex::encode(pack_set(self.get_subtypes())));
             parts.push(pack_set(self.get_subtypes()));
         }
         asn_choice(self.get_type().id(), &asn_data(&parts))
@@ -139,15 +139,15 @@ impl Condition {
                 let mut elems = asn_data(&vec![t]);
                 elems.push(asn_choice(1, &asns));
 
-                println!("subconds begin");
+                //println!("subconds begin");
                 for child in asns {
-                    println!("asns[]={}", hex::encode(encode_asn(&child)));
+                    //println!("asns[]={}", hex::encode(encode_asn(&child)));
                 }
-                println!("subconds end");
+                //println!("subconds end");
    
                 hash_asn(&ASN1Block::Sequence(0, elems))
             }
-            Anon { fingerprint, .. } => { info!("Anon fingerprint.clone()"); fingerprint.clone() },
+            Anon { fingerprint, .. } => { /*info!("Anon fingerprint.clone()");*/ fingerprint.clone() },
         }
     }
 
@@ -314,25 +314,25 @@ fn threshold_fulfillment_asn(threshold: u16, subconditions: &Vec<Condition>, fla
 }
 
 fn threshold_fulfillment_asn_mixed_mode(threshold: u16, subconditions: &Vec<Condition>, flags: u32) -> R {
-    info!("threshold_fulfillment_asn_mixed_mode enterred, threshold={} subconditions.len={}", threshold, subconditions.len());
+    //info!("threshold_fulfillment_asn_mixed_mode enterred, threshold={} subconditions.len={}", threshold, subconditions.len());
     let threshold_bytes = vec![ threshold as u8];
     let marker = Preimage {
         preimage: threshold_bytes // threshold.to_le_bytes().to_vec()
     };
     let marker_asn = marker.encode_fulfillment_asn(flags);
     let mut ffils = vec![ marker_asn.unwrap() ];
-    info!("marker_asn={}", hex::encode(encode_asn( &marker.encode_fulfillment_asn(flags).unwrap() )));
+    //info!("marker_asn={}", hex::encode(encode_asn( &marker.encode_fulfillment_asn(flags).unwrap() )));
     let mut conds = vec![ ];
 
     let mut i = 0;
     while i < subconditions.len() {
         let ffil = subconditions[i].encode_fulfillment_asn(flags);
         match ffil {
-            Ok(c) => { ffils.push(c); info!("threshold_fulfillment_asn_mixed_mode push ffil i = {} asn={}", i,  hex::encode(encode_asn(&subconditions[i].encode_fulfillment_asn(flags).unwrap() ))); },
-            Err(e) => { conds.push(subconditions[i].encode_condition_asn()); info!("threshold_fulfillment_asn_mixed_mode push cond i = {} type={}  asn={}", i, subconditions[i].get_type().id(), hex::encode(encode_asn(&(subconditions[i].encode_condition_asn())) )  ); }
+            Ok(c) => { ffils.push(c); /*info!("threshold_fulfillment_asn_mixed_mode push ffil i = {} asn={}", i,  hex::encode(encode_asn(&subconditions[i].encode_fulfillment_asn(flags).unwrap() )));*/ },
+            Err(_e) => { conds.push(subconditions[i].encode_condition_asn()); /*info!("threshold_fulfillment_asn_mixed_mode push cond i = {} type={}  asn={}", i, subconditions[i].get_type().id(), hex::encode(encode_asn(&(subconditions[i].encode_condition_asn()))));*/ }
         }
         i += 1;
-        info!("threshold_fulfillment_asn_mixed_mode i = {}", i);
+        //info!("threshold_fulfillment_asn_mixed_mode i = {}", i);
     }
 
     // x690 Elements of a Set are encoded in sorted order, based on their tag value
@@ -350,14 +350,14 @@ pub fn threshold_to_anon(cond: &mut Condition) {
             threshold: _,
             ref mut subconditions,
         } => {
-            info!("subconds:");
+            //info!("subconds:");
             for subcond in subconditions {
-                info!("subcond={}", hex::encode(encode_asn(&subcond.encode_condition_asn())));
+                //info!("subcond={}", hex::encode(encode_asn(&subcond.encode_condition_asn())));
 
                 if subcond.get_type() == ThresholdType {
                     let anon = subcond.to_anon();
-                    info!("anon after={} type={}", hex::encode(encode_asn(&anon.encode_condition_asn())), anon.get_type().id());
-                    info!("subcond after={}", hex::encode(encode_asn(&subcond.encode_condition_asn())));
+                    //info!("anon after={} type={}", hex::encode(encode_asn(&anon.encode_condition_asn())), anon.get_type().id());
+                    //info!("subcond after={}", hex::encode(encode_asn(&subcond.encode_condition_asn())));
 
                     *subcond = anon;
                     break;
@@ -406,10 +406,10 @@ pub mod internal {
         let mut i = 0;
         while i < buf.len()   {
             asubtypes[i] = buf[i]; 
-            info!("buf[i]={}", buf[i]);
+            //info!("buf[i]={}", buf[i]);
             i += 1;
         }
-        info!("pack_set() u32::from_le_bytes(buf)={}", u32::from_le_bytes(asubtypes));
+        //info!("pack_set() u32::from_le_bytes(buf)={}", u32::from_le_bytes(asubtypes));
 
         let mut mask : u32 = 0;
         let mut i = 0;
@@ -419,7 +419,7 @@ pub mod internal {
             }
             i = i + 1;
         }
-        info!("mask = {}", mask);
+        //info!("mask = {}", mask);
 
         buf
     }
