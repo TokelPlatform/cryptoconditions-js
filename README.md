@@ -22,3 +22,15 @@ npm link cryptoconditions
 ```
 
 To use the cryptoconditions wasm in browser use browserify tool
+
+
+## Publish new npm version
+
+[Reference](https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/packaging-and-publishing.html)
+
+```
+$ wasm-pack build --target nodejs
+$ cd pkg
+$ #check the version of the library in package.json
+$ npm publish --access=public
+```
