@@ -1,10 +1,7 @@
 {
   "name": "cryptoconditions-js",
-  "version": "0.1.0",
-  "scripts": {
-  },
-  "dependencies": {
-  },
-  "devDependencies": {
-  } 
+  "version": "0.1.1",
+  "scripts": {},
+  "dependencies": {},
+  "devDependencies": {}
 }
