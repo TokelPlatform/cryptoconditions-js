@@ -55,7 +55,7 @@ describe('cryptoconditons', async function () {
 
       it('decode mixed mode condition from asn, ' + String(i), function () {
         let jsonFfilMixed = cc.js_cc_read_fulfillment_binary_mixed(Buffer.from(js.MixedModeASN, 'hex')); 
-        console.log(js.id, 'jsonFfilMixed', JSON.stringify(jsonFfilMixed))
+        //console.log(js.id, 'jsonFfilMixed', JSON.stringify(jsonFfilMixed))
         assert(jsonCompare(jsonFfilMixed, js.MixedModeCond))
         let asnCond = cc.js_cc_condition_binary(jsonFfilMixed)
         assert.strictEqual(Buffer.from(asnCond).toString('hex'), js.CondASN) // check mixed mode encoded fulfilment serialised to asn condition correctly
