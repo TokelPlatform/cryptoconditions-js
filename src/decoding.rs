@@ -136,7 +136,7 @@ fn parse_fulfillment(parser: &mut Parser, flags: u32) -> R<Condition> {
     Ok(o)
 }
 
-fn parse_condition(top_parser: &mut Parser, flags: u32) -> R<Condition> {
+fn parse_condition(top_parser: &mut Parser, _flags: u32) -> R<Condition> {
     let (type_id, mut parser) = top_parser.any()?;
     let cond_type = condition_type_from_id(type_id)?;
     let () = top_parser.end()?;
