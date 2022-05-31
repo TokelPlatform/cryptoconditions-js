@@ -1,6 +1,6 @@
 
 //var ccimp = import('./pkg/cryptoconditions.js');
-var ccimp = require('./pkg/cryptoconditions.js');
+var ccimp = require('../pkg/cryptoconditions.js');
 
 
 //import * as ccimp from "./pkg/cryptoconditions.js";
