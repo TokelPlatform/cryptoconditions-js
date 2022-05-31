@@ -1,8 +1,11 @@
 use std::convert::TryInto;
 use libsecp256k1::{PublicKey, Signature, SecretKey, Message};
 use num_traits::ToPrimitive;
+use wasm_bindgen::UnwrapThrowExt;
 use crate::*; 
 use log::info;
+use log::Level;
+use std::collections::HashSet;
 
 use js_sys::Uint8ClampedArray;
 use wasm_bindgen::JsValue;
@@ -40,7 +43,7 @@ fn parse_js_cond(js_cond: &JsValue) -> Result<Condition, JsValue>
     match js_type.as_string().unwrap().as_ref() {
         "threshold-sha-256" => {
             let js_threshold = js_sys::Reflect::get(&js_cond, &JsValue::from_str("threshold"))?;
-            if js_threshold.is_null()  {
+            if js_threshold.is_undefined()  {
                 return Err("no \'threshold\" property".into());
             }
 
@@ -91,7 +94,7 @@ fn parse_js_cond(js_cond: &JsValue) -> Result<Condition, JsValue>
         },
         "secp256k1-sha-256" => {
             let js_public_key = js_sys::Reflect::get(&js_cond, &JsValue::from_str("publicKey"))?;
-            if js_public_key.is_null()  {
+            if js_public_key.is_undefined()  {
                 return Err("no \'publicKey\' property".into());
             }
             let pubkey_value = match js_public_key.is_string() {
@@ -128,7 +131,7 @@ fn parse_js_cond(js_cond: &JsValue) -> Result<Condition, JsValue>
         "secp256k1hash-sha-256" => {
             let js_public_key_hash = js_sys::Reflect::get(&js_cond, &JsValue::from_str("publicKeyHash"))?;
 
-            // strange but for empty "publicKeyHash" js_public_key_hash.is_null() == false but js_public_key_hash is 'undefined'. 
+            // strange but for empty "publicKeyHash" js_public_key_hash.is_undefined() == false but js_public_key_hash is 'undefined'. 
             // Maybe a wasm compiler error. So we use is_string() to determine if this is a non empty string value
             let pubkey_hash_value = match js_public_key_hash.is_string() {
                 true => {
@@ -141,7 +144,7 @@ fn parse_js_cond(js_cond: &JsValue) -> Result<Condition, JsValue>
             };
 
             let js_public_key = js_sys::Reflect::get(&js_cond, &JsValue::from_str("publicKey"))?;
-            // strangely for empty "publicKey" js_public_key.is_null() == false but js_public_key is 'undefined'. 
+            // strangely for empty "publicKey" js_public_key.is_undefined() == false but js_public_key is 'undefined'. 
             // Maybe a wasm compiler error. So we use is_string() to determine if this is a non empty value
             let pubkey_value = match js_public_key.is_string() {
                 true => {
@@ -198,7 +201,7 @@ fn parse_js_cond(js_cond: &JsValue) -> Result<Condition, JsValue>
         },
         "(anon)" => {
             let js_cond_type = js_sys::Reflect::get(&js_cond, &JsValue::from_str("cond_type"))?;
-            if js_cond_type.is_null()  {
+            if js_cond_type.is_undefined()  {
                 return Err("no \'cond_type\' property".into());
             }
             let cond_type_as_u8 = js_cond_type.as_f64().unwrap() as u8;
@@ -215,24 +218,33 @@ fn parse_js_cond(js_cond: &JsValue) -> Result<Condition, JsValue>
             };
 
             let js_cost = js_sys::Reflect::get(&js_cond, &JsValue::from_str("cost"))?;
-            if js_cost.is_null()  {
+            if js_cost.is_undefined()  {
                 return Err("no \'cost\' property".into());
             }
             let cost_decoded = js_cost.as_f64().unwrap() as u64;
 
-            let mut subtypes_decoded = vec![0,0,0,0];
+            let mut subtypes_hashset = HashSet::<u8>::new();
             let js_subtypes = js_sys::Reflect::get(&js_cond, &JsValue::from_str("subtypes"))?;
-            if js_subtypes.is_string()  {
-                let subtypes_bytes = js_subtypes.as_string().unwrap().parse::<u32>().unwrap().to_le_bytes();
-                subtypes_decoded = subtypes_bytes.to_vec();
+            if !js_subtypes.is_undefined()  {
+
+                let mut mask = js_subtypes.as_f64().unwrap() as u32;
+                let mut bit = 0; 
+                while mask > 0  {
+                    if (mask & 0x01) != 0 {
+                        subtypes_hashset.insert(bit);
+                    }
+                    mask = mask >> 1;
+                    bit += 1;
+                    if bit > 24 { return Err("too big type value in subtypes".into()); }
+                }
             }
 
-            
             let cond = Anon {
                 cond_type:  cond_type_as_type,
                 fingerprint: fingerprint_decoded,
                 cost: cost_decoded,
-                subtypes: internal::unpack_set(subtypes_decoded),
+                //subtypes: internal::unpack_set(subtypes_decoded),
+                subtypes: subtypes_hashset,
             };
 
             Ok(cond)
@@ -303,10 +315,14 @@ fn make_js_cond(cond: Condition) -> Result<JsValue, JsValue>
             js_sys::Reflect::set(&js_cond, &JsValue::from_str("type"), &JsValue::from_str("(anon)"))?;
             js_sys::Reflect::set(&js_cond, &JsValue::from_str("fingerprint"), &JsValue::from_str(&base64::encode( fingerprint )))?;
             js_sys::Reflect::set(&js_cond, &JsValue::from_str("cost"), &JsValue::from_f64( cost.to_f64().unwrap() ))?;
-            if  cond.get_type().has_subtypes()   {
-                let vsubtypes = internal::pack_set(subtypes.clone());
-                let asubtypes: [u8; 4] = vsubtypes.as_slice().try_into().expect("invalid subtypes size");
-                js_sys::Reflect::set(&js_cond, &JsValue::from_str("subtypes"), &JsValue::from_str(  &u32::from_le_bytes(asubtypes).to_string()  ))?;
+            if  cond.get_type().has_subtypes()   
+            {
+                // convert subtypes as HashSet with bits to u32 mask
+                let mut mask = 0;
+                for bit in subtypes.to_owned().into_iter() {
+                    mask |= 1 << bit;
+                }
+                js_sys::Reflect::set(&js_cond, &JsValue::from_str("subtypes"), &JsValue::from_f64(  mask.to_f64().unwrap()  ))?;
             }
         }
     }
@@ -317,12 +333,12 @@ fn make_js_cond(cond: Condition) -> Result<JsValue, JsValue>
 #[wasm_bindgen]
 pub fn js_cc_condition_binary(js_cond: &JsValue) -> Result<Uint8ClampedArray, JsError> 
 {    
+    if !js_cond.is_object() { return Err(JsError::new("not an object")); }
     // parse and convert JsValue error to JsError
     let cond = match parse_js_cond(js_cond)  {
         Ok(c) => c,
         Err(e) => { return Err(JsError::new(&(format!("rustlibcc: could not parse js cond: {}", &e.as_string().unwrap())))); },
     }; 
-
     let encoded_cond = cond.encode_condition(); // no error returned
 
     Ok(Uint8ClampedArray::from(encoded_cond.as_slice()))
@@ -332,6 +348,7 @@ pub fn js_cc_condition_binary(js_cond: &JsValue) -> Result<Uint8ClampedArray, Js
 #[wasm_bindgen]
 pub fn js_cc_fulfillment_binary(js_cond: &JsValue) -> Result<Uint8ClampedArray, JsError> 
 {
+    if !js_cond.is_object() { return Err(JsError::new("not an object")); }
     let cond = match parse_js_cond(js_cond)  {
         Ok(c) => c,
         Err(e) => { return Err(JsError::new(&(format!("rustlibcc: could not parse js cond: {}", &e.as_string().unwrap())))); },
@@ -348,6 +365,7 @@ pub fn js_cc_fulfillment_binary(js_cond: &JsValue) -> Result<Uint8ClampedArray, 
 #[wasm_bindgen]
 pub fn js_cc_fulfillment_binary_mixed(js_cond: &JsValue) -> Result<Uint8ClampedArray, JsError> 
 {    
+    if !js_cond.is_object() { return Err(JsError::new("not an object")); }
     let cond = match parse_js_cond(js_cond)  {
         Ok(c) => c,
         Err(e) => { return Err(JsError::new(&(format!("rustlibcc: could not parse js cond: {}", &e.as_string().unwrap())))); },
@@ -365,7 +383,8 @@ pub fn js_cc_fulfillment_binary_mixed(js_cond: &JsValue) -> Result<Uint8ClampedA
 #[wasm_bindgen]
 pub fn js_cc_sign_secp256k1(js_cond: &JsValue, uca_secret_key: &Uint8ClampedArray, uca_msg: &Uint8ClampedArray) -> Result<JsValue, JsError> 
 {
-        let mut cond = match parse_js_cond(js_cond) {
+    if !js_cond.is_object() { return Err(JsError::new("not an object")); }
+    let mut cond = match parse_js_cond(js_cond) {
         Ok(r) => r,
         Err(e) => return Err(JsError::new(&(format!("rustlibcc: could not parse js cond: {}", &e.as_string().unwrap())))),
     };
@@ -401,6 +420,8 @@ pub fn js_sign_secp256k1(js_cond: &JsValue, uca_secret_key: &Uint8ClampedArray, 
 #[wasm_bindgen]
 pub fn js_cc_sign_secp256k1hash(js_cond: &JsValue, uca_secret_key: &Uint8ClampedArray, uca_msg: &Uint8ClampedArray) -> Result<JsValue, JsError> 
 {
+    if !js_cond.is_object() { return Err(JsError::new("not an object")); }
+
     // parse and convert JsValue error to JsError
     let mut cond = match parse_js_cond(js_cond) {
         Ok(r) => r,
@@ -459,7 +480,7 @@ pub fn js_cc_read_fulfillment_binary_mixed(js_bin: &Uint8ClampedArray) -> Result
         };
     let js_cond = match make_js_cond(cond) {
         Ok(r) => r,
-        Err(e) => return Err(JsError::new(&(format!("rustlibcc: could not make cond: {}", &e.as_string().unwrap())))),
+        Err(e) => { return Err(JsError::new(&(format!("rustlibcc: could not make cond: {}", &e.as_string().unwrap())))) },
     };
 
     Ok(js_cond)
@@ -497,6 +518,8 @@ pub fn js_read_fulfillment_binary(js_bin: &Uint8ClampedArray) -> Result<JsValue,
 #[wasm_bindgen]
 pub fn js_cc_threshold_to_anon(js_cond: &JsValue) -> Result<JsValue, JsError> 
 { 
+    if !js_cond.is_object() { return Err(JsError::new("not an object")); }
+
     let mut cond = match parse_js_cond(js_cond)  {
         Ok(c) => c,
         Err(e) => { return Err(JsError::new(&(format!("rustlibcc: could parse cc: {}", &e.as_string().unwrap())))) },
