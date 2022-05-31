@@ -155,7 +155,7 @@ impl Condition {
    
                 hash_asn(&ASN1Block::Sequence(0, elems))
             }
-            Anon { fingerprint, .. } => { /*info!("Anon fingerprint.clone()");*/ fingerprint.clone() },
+            Anon { fingerprint, .. } => { fingerprint.clone() },
         }
     }
 
@@ -432,16 +432,19 @@ pub mod internal {
         to_der(asn).expect("ASN encoding broke")
     }
 
+    // same as asnSubtypes in the C-version
+    // that one returned  BITSTRING with 'buf','size' and 'bits_unused' fields
+    // this one returns vec[u8;4] packed so could be directly written as asn value (with 1st byte as 'bits_unused') 
     pub fn pack_set(items: HashSet<u8>) -> Vec<u8> {
         // XXX: This will probably break if there are any type IDs > 31
         let mut buf = vec![0, 0, 0, 0];
         let mut max_id = 0;
         for i in items {
             max_id = std::cmp::max(i, max_id);
-            buf[i as usize >> 3] |= 1 << (7 - i % 8);
+            buf[i as usize >> 3] |= 1 << (7 - i % 8);  // note i is 24 max (as 24 >> 3 is 3)
         }
         buf.truncate(1 + (max_id >> 3) as usize);
-        buf.insert(0, 7 - max_id % 8);
+        buf.insert(0, 7 - max_id % 8);  //unused bits
 
         let mut asubtypes: [u8; 4] = [0,0,0,0];
         let mut i = 0;
@@ -453,9 +456,12 @@ pub mod internal {
         buf
     }
 
+    // same as fromAsnSubtypes in the C-version
+    // that one returned uint32 mask
+    // this one returns HashSet<u8> as a set of bits so it could be directly converted into u32 
     pub fn unpack_set(buf_: Vec<u8>) -> HashSet<u8> {
         let mut set = HashSet::new();
-        let buf: Vec<&u8> = buf_.iter().skip(1).collect();
+        let buf: Vec<&u8> = buf_.iter().skip(1).collect();  // bits_unused skipped
 
         // TODO: omg check
 
@@ -674,8 +680,6 @@ mod tests {
             cond.encode_fulfillment(0).unwrap(),
             "a236a032a003800102a226a005a003800101a11da61b80146579c3bd574da22803234e12ddcec405e2b990928103020000af038001f4a100".from_hex::<Vec<u8>>().unwrap()
             );
-        //let asn = cond.encode_condition();
-        //info!("encode_condition={:?}", hex::encode(&asn));
         assert_eq!(
             cond.encode_condition(),
             "a22c802071281bcd950d6dd754b72b17b35ad6ac73a477b8dce5ff5ee0081dd7e7f0a3b881031214018203008201".from_hex::<Vec<u8>>().unwrap()
