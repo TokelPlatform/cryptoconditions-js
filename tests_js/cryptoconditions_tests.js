@@ -3,8 +3,9 @@
 var assert = require('assert');
 const { stringify } = require('querystring');
 var ccimp = require('../pkg/cryptoconditions.js');
-var jsConds = require('./jsons/conds-mixed.json')
+var jsMixedConds = require('./jsons/conds-mixed.json')
 var jsNonMixedConds = require('./jsons/conds-non-mixed.json')
+var jsAnonConds = require('./jsons/conds-anon.json')
 
 
 // make uniform c++ (test jsons created in c++) and rust differences for encoding into hex (letter case) and base64 (padding with '=')
@@ -40,9 +41,10 @@ let jsonCompare = (arg1, arg2) => {
 
 describe('cryptoconditons', async function () {
   let cc = await ccimp;
+  
   describe('mixed-mode conditions', function () {
     let i = 0
-    jsConds.forEach(function (js) {
+    jsMixedConds.forEach(function (js) {
       i ++
       it('encode mixed mode condition to asn, ' + String(i), function () {
         //console.log(js.id, 'js.cond', JSON.stringify(js.cond))
@@ -87,4 +89,26 @@ describe('cryptoconditons', async function () {
       })
     })
   })
+
+  describe('anon conditions', function () {
+    let i = 0
+    jsAnonConds.forEach(function (js) {
+      i ++
+      it('encode anon condition to asn, ' + String(i), function () {
+        //console.log('js.ffil', JSON.stringify(js.cond))
+        let js_cond = js.cond
+        //console.log(js.id, 'js_cond', JSON.stringify(js_cond))
+        let asnAnon = cc.js_cc_condition_binary(js_cond); 
+        //console.log(js.id, 'asnAnon', Buffer.from(asnAnon).toString('hex'))
+        assert.strictEqual(Buffer.from(asnAnon).toString('hex'), js.CondASN)
+      })
+
+      it('decode anon condition from asn, ' + String(i), function () {
+        let jsonCond = cc.js_cc_read_condition_binary(Buffer.from(js.CondASN, 'hex')); 
+        //console.log(js.id, 'parsed non-mixed jsonCond', JSON.stringify(jsonCond))
+        assert(jsonCompare(jsonCond, js.cond)) // compare back to the original cond
+      })
+    })
+  })
+
 })
