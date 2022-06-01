@@ -121,10 +121,10 @@ var callCC = async function () {
         console.log('hex=', Buffer.from(rasn.buffer).toString('hex'));   */
 
         // anon to anon asn, max subtypes
-        let jsanon22 = '{"type":"(anon)","fingerprint":"ff66rHP4KxGz6nKw9hLKpQ7v1AfEni/MEIIoIMuR+R4","cost":132096,"subtypes":16777215,"cond_type":2}'
+        /*let jsanon22 = '{"type":"(anon)","fingerprint":"ff66rHP4KxGz6nKw9hLKpQ7v1AfEni/MEIIoIMuR+R4","cost":132096,"subtypes":16777215,"cond_type":2}'
         let anoncond22 = JSON.parse(jsanon22);
         var rasn22 = cc.js_cc_condition_binary(anoncond22); 
-        console.log('hex=', Buffer.from(rasn22.buffer).toString('hex'));   
+        console.log('hex=', Buffer.from(rasn22.buffer).toString('hex'));   */
 
         /*var anoncondhex5 = 'a22b80207dfebaac73f82b11b3ea72b0f612caa50eefd407c49e2fcc10822820cb91f91e810302040082020780'
         let anoncondbin5 = Buffer.from(anoncondhex5, 'hex')
@@ -136,6 +136,10 @@ var callCC = async function () {
         var rasn6 = cc.js_cc_condition_binary(anoncond6); 
         console.log('hex=', Buffer.from(rasn6.buffer).toString('hex')); */
 
+        let jstoanon7 = '{"type":"threshold-sha-256","threshold":2,"subfulfillments":[{"type":"eval-sha-256","code":"9Q=="},{"type":"threshold-sha-256","threshold":1,"subfulfillments":[{"type":"secp256k1-sha-256","publicKey":""}]}]}'
+        let jscond7 = JSON.parse(jstoanon7);
+        var rasn7 = cc.js_cc_threshold_to_anon(jscond7); 
+        console.log('hex=', Buffer.from(rasn7.buffer).toString('hex')); 
     }
     catch(err) {
         console.log("err=", err);
