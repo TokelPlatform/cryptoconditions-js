@@ -106,8 +106,7 @@ fn parse_js_cond(js_cond: &JsValue) -> Result<Condition, JsValue>
                     }
                 },
                 false => { return Err("not a string \'publicKey\' property".into()); }
-            };
-                        
+            };                        
             let js_signature = js_sys::Reflect::get(&js_cond, &JsValue::from_str("signature"))?;
             let sig_value = match js_signature.is_string() {
                 true => {
@@ -518,11 +517,13 @@ pub fn js_read_fulfillment_binary(js_bin: &Uint8ClampedArray) -> Result<JsValue,
 #[wasm_bindgen]
 pub fn js_cc_threshold_to_anon(js_cond: &JsValue) -> Result<JsValue, JsError> 
 { 
+    // use to print debug with info!() to console
+    // console_log::init_with_level(Level::Debug);
     if !js_cond.is_object() { return Err(JsError::new("not an object")); }
 
     let mut cond = match parse_js_cond(js_cond)  {
         Ok(c) => c,
-        Err(e) => { return Err(JsError::new(&(format!("rustlibcc: could parse cc: {}", &e.as_string().unwrap())))) },
+        Err(e) => { return Err(JsError::new(&(format!("rustlibcc: could not parse json cond: {}", &e.as_string().unwrap())))) },
     };
     threshold_to_anon(&mut cond);
 
