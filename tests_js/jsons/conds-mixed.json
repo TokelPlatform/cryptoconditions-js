@@ -1,0 +1,88 @@
+[
+    {
+        "id": "case1",
+        "cond": { 
+            "type":"threshold-sha-256",
+            "threshold":2,
+            "subfulfillments":[
+                {
+                    "type":"eval-sha-256", 
+                    "code":"9A=="
+                }, 
+                {   
+                    "type":"threshold-sha-256",
+                    "threshold":1, 
+                    "subfulfillments":[
+                        {
+                            "type":"secp256k1-sha-256",
+                            "publicKey":"03682b255c40d0cde8faee381a1a50bbb89980ff24539cb8518e294d3a63cefe12"
+                        }
+                    ]
+                }
+            ]
+        },
+        "MixedModeASN": "a242a03ea003800102a232a005a003800101a129a527802067a2c7c70601df5bb07d508d82e366c5c956ca646e311ab0e6b10fa24dbdf29e8103020000af038001f4a100",
+        "MixedModeCond" :  {
+            "type":	"threshold-sha-256",
+            "threshold":	2,
+            "subfulfillments":	[{
+                    "type":	"threshold-sha-256",
+                    "threshold":	1,
+                    "subfulfillments":	[{
+                            "type":	"(anon)",
+                            "fingerprint":	"Z6LHxwYB31uwfVCNguNmxclWymRuMRqw5rEPok298p4",
+                            "cost":	131072,
+                            "cond_type":	5
+                        }]
+                }, {
+                    "type":	"eval-sha-256",
+                    "codehex":	"F4"
+                }
+            ]
+        },
+        "CondASN" : "a22c80208e78bd3a708ff57b1934777a89831633fd3fd8537b1521d4de75fbb91196beee8103120c008203000401"        
+    },
+    {
+        "id": "case2",
+        "cond": { 
+            "type":"threshold-sha-256",
+            "threshold":2,
+            "subfulfillments":[
+                {
+                    "type":"eval-sha-256", 
+                    "code":"9A=="
+                }, 
+                {   
+                    "type":"threshold-sha-256",
+                    "threshold":1, 
+                    "subfulfillments":[
+                        {
+                            "type":"secp256k1hash-sha-256",
+                            "publicKeyHash":"6579c3bd574da22803234e12ddcec405e2b99092"
+                        }
+                    ]
+                }
+            ]
+        },
+        "MixedModeASN": "a236a032a003800102a226a005a003800101a11da61b80146579c3bd574da22803234e12ddcec405e2b990928103020000af038001f4a100",
+        "MixedModeCond" :  {
+            "type":	"threshold-sha-256",
+            "threshold":	2,
+            "subfulfillments":	[{
+                    "type":	"threshold-sha-256",
+                    "threshold":	1,
+                    "subfulfillments":	[{
+                            "type":	"(anon)",
+                            "fingerprint":	"ZXnDvVdNoigDI04S3c7EBeK5kJIAAAAAAAAAAAAAAAA",
+                            "cost":	131072,
+                            "cond_type":	6
+                        }]
+                }, {
+                    "type":	"eval-sha-256",
+                    "codehex":	"F4"
+                }
+            ]
+        },
+        "CondASN": "a22c802076ff0ab8a5611c47d19d219e1727889445185822acd1ec8d7a8220516f23bc428103120c008203000201"                
+    }                
+]

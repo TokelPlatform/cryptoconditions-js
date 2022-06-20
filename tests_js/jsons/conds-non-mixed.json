@@ -1,0 +1,149 @@
+[
+    {
+        "id": "case1",
+        "cond": {
+            "type":	"threshold-sha-256",
+            "threshold":	3,
+            "subfulfillments":	[{
+                    "type":	"preimage-sha-256",
+                    "preimage":	"Ag"
+                }, {
+                    "type":	"threshold-sha-256",
+                    "threshold":	1,
+                    "subfulfillments":	[{
+                            "type":	"preimage-sha-256",
+                            "preimage":	"AQ"
+                        }]
+                }, {
+                    "type":	"eval-sha-256",
+                    "codehex":	"F4"
+                }]
+        },
+        "NonMixedModeASN": "a219a015a003800102a209a005a003800101a100af038001f4a100",
+        "decoded": {
+            "type":	"threshold-sha-256",
+            "threshold":	3,
+            "subfulfillments":	[{
+                    "type":	"preimage-sha-256",
+                    "preimage":	"Ag"
+                }, {
+                    "type":	"threshold-sha-256",
+                    "threshold":	1,
+                    "subfulfillments":	[{
+                            "type":	"preimage-sha-256",
+                            "preimage":	"AQ"
+                        }]
+                }, {
+                    "type":	"eval-sha-256",
+                    "codehex":	"F4"
+                }
+            ]
+        }
+    },
+    {
+        "id": "case2",
+        "cond": {
+            "type":"threshold-sha-256",
+            "threshold": 2,
+            "subfulfillments":[{
+                    "type":"eval-sha-256",
+                    "code":"9A=="
+                }, {
+                    "type":"threshold-sha-256",
+                    "threshold": 1,
+                    "subfulfillments":[{
+                            "type":"secp256k1-sha-256",
+                            "publicKey":	"035d3b0f2e98cf0fba19f80880ec7c08d770c6cf04aa5639bc57130d5ac54874db",
+                            "signature": "f28d8faa163cea845b333e4f78f404e401d9ade79de458e2a78c3a3dd46944656595d5e7cf7da1b89667b44ecfcb923bf54b8462d94f2ab3b99d16a81bf81257"
+                        }
+                    ]
+                }
+            ]
+        },
+        "NonMixedModeASN": "a276a072a26ba067a5658021035d3b0f2e98cf0fba19f80880ec7c08d770c6cf04aa5639bc57130d5ac54874db8140f28d8faa163cea845b333e4f78f404e401d9ade79de458e2a78c3a3dd46944656595d5e7cf7da1b89667b44ecfcb923bf54b8462d94f2ab3b99d16a81bf81257a100af038001f4a100",
+        "decoded" : {
+            "type":	"threshold-sha-256",
+            "threshold":	2,
+            "subfulfillments":	[{
+                    "type":	"threshold-sha-256",
+                    "threshold":	1,
+                    "subfulfillments":	[{
+                            "type":	"secp256k1-sha-256",
+                            "publicKey":	"035D3B0F2E98CF0FBA19F80880EC7C08D770C6CF04AA5639BC57130D5AC54874DB",
+                            "signature":	"F28D8FAA163CEA845B333E4F78F404E401D9ADE79DE458E2A78C3A3DD46944656595D5E7CF7DA1B89667B44ECFCB923BF54B8462D94F2AB3B99D16A81BF81257"
+                        }]
+                }, {
+                    "type":	"eval-sha-256",
+                    "codehex":	"F4"
+                }
+            ]
+        }         
+    },
+    {
+        "id": "case3",
+        "comment": "for secp256k1hash condition to create a fulfillment from it we need 'pubkey' and 'signature'. To add it we need to sign the secp256k1hash condition",
+        "cond": {
+            "type":"threshold-sha-256",
+            "threshold": 2,
+            "subfulfillments":[{
+                    "type":"eval-sha-256",
+                    "code":"9A=="
+                }, {
+                    "type":"threshold-sha-256",
+                    "threshold": 1,
+                    "subfulfillments":[{
+                            "type":"secp256k1hash-sha-256",
+                            "publicKeyHash":	"6579c3bd574da22803234e12ddcec405e2b99092"
+                        }
+                    ]
+                }
+            ]
+        },
+        "message": "4e43e43d3569c1155cc9340f46b58425e3d86890076739f19298bc66e6a7acf2",
+        "privateKey": "0df044c4bed33b74af696b051dbf70142fc3a78da34738c0336f5015e3d285ee",
+        "NonMixedModeASN": "a276a072a26ba067a6658021035d3b0f2e98cf0fba19f80880ec7c08d770c6cf04aa5639bc57130d5ac54874db8140f28d8faa163cea845b333e4f78f404e401d9ade79de458e2a78c3a3dd46944656595d5e7cf7da1b89667b44ecfcb923bf54b8462d94f2ab3b99d16a81bf81257a100af038001f4a100",
+        "decoded" : {
+            "type":	"threshold-sha-256",
+            "threshold":	2,
+            "subfulfillments":	[{
+                    "type":	"threshold-sha-256",
+                    "threshold":	1,
+                    "subfulfillments":	[{
+                            "type":	"secp256k1hash-sha-256",
+                            "publicKey":	"035D3B0F2E98CF0FBA19F80880EC7C08D770C6CF04AA5639BC57130D5AC54874DB",
+                            "signature":	"F28D8FAA163CEA845B333E4F78F404E401D9ADE79DE458E2A78C3A3DD46944656595D5E7CF7DA1B89667B44ECFCB923BF54B8462D94F2AB3B99D16A81BF81257"
+                        }]
+                }, {
+                    "type":	"eval-sha-256",
+                    "codehex":	"F4"
+                }
+            ]
+        }               
+    },    
+    {
+        "id": "case4",
+        "comment": "for a secp256k1hash condition to create a fulfillment from it we need 'pubkey' and 'signature'. To add it we need to sign the secp256k1hash condition",
+        "cond": {   
+            "type":	"threshold-sha-256",  
+            "threshold":	1,          
+            "subfulfillments":	[{  
+                    "type":	"secp256k1hash-sha-256",  
+                    "publicKeyHash":	"6579c3bd574da22803234e12ddcec405e2b99092"
+                }
+            ]  
+        },
+        "message": "4e43e43d3569c1155cc9340f46b58425e3d86890076739f19298bc66e6a7acf2",
+        "privateKey": "0df044c4bed33b74af696b051dbf70142fc3a78da34738c0336f5015e3d285ee",
+        "NonMixedModeASN": "a26ba067a6658021035d3b0f2e98cf0fba19f80880ec7c08d770c6cf04aa5639bc57130d5ac54874db8140f28d8faa163cea845b333e4f78f404e401d9ade79de458e2a78c3a3dd46944656595d5e7cf7da1b89667b44ecfcb923bf54b8462d94f2ab3b99d16a81bf81257a100",
+        "decoded": {
+            "type":	"threshold-sha-256",
+            "threshold":	1,
+            "subfulfillments":	[{
+                    "type":	"secp256k1hash-sha-256",
+                    "publicKey":	"035D3B0F2E98CF0FBA19F80880EC7C08D770C6CF04AA5639BC57130D5AC54874DB",
+                    "signature":	"F28D8FAA163CEA845B333E4F78F404E401D9ADE79DE458E2A78C3A3DD46944656595D5E7CF7DA1B89667B44ECFCB923BF54B8462D94F2AB3B99D16A81BF81257"
+                }
+            ]
+        }        
+    }
+]
