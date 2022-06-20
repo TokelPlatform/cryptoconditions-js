@@ -23,11 +23,14 @@ pub fn decode_condition(buf: &[u8]) -> R<Condition> {
     parse_condition(&mut Parser::from_buf(buf)?, 0)
 }
 
+// get condition type enum from cond_type value
 pub fn condition_type_from_id(id: u8) -> Result<ConditionType, ConditionDecodeError> {
     Ok(match id {
         0 => PreimageType,
+        1 => PrefixType,
         2 => ThresholdType,
         5 => Secp256k1Type,
+        6 => Secp256k1HashType,
         15 => EvalType,
         0xff => AnonType,
         _ => Err(ConditionDecodeError(format!("Unknown condition type id: {:?}", id)))?
@@ -125,6 +128,7 @@ fn parse_fulfillment(parser: &mut Parser, flags: u32) -> R<Condition> {
         0 => parse_preimage(&mut p),
         2 => parse_threshold(&mut p, flags),
         5 => parse_secp256k1(&mut p),
+        6 => parse_secp256k1hash(&mut p),
         15 => parse_eval(&mut p),
         _ => Err(err("Invalid Condition ASN")),
     }?;
@@ -132,11 +136,11 @@ fn parse_fulfillment(parser: &mut Parser, flags: u32) -> R<Condition> {
     Ok(o)
 }
 
-fn parse_condition(top_parser: &mut Parser, flags: u32) -> R<Condition> {
+fn parse_condition(top_parser: &mut Parser, _flags: u32) -> R<Condition> {
     let (type_id, mut parser) = top_parser.any()?;
     let cond_type = condition_type_from_id(type_id)?;
     let () = top_parser.end()?;
-    let fingerprint = parser.buf(0)?;
+    let fingerprint = pad_fingerprint( &parser.buf(0)?, &cond_type);  // pad to 32 bytes
     let cost = BigInt::from_signed_bytes_be(&parser.buf(1)?)
         .to_u64()
         .ok_or(err("Can't decode cost"))?;
@@ -169,6 +173,22 @@ fn parse_secp256k1(parser: &mut Parser) -> R<Condition> {
             signature: Some(sig),
         }),
         _ => Err(err("Bad ASN1 secp256k1")),
+    }
+}
+
+// secp256k1hash fulfillment equals to the secp256k1 fulfillment (pubkey + signature)
+fn parse_secp256k1hash(parser: &mut Parser) -> R<Condition> {
+    match (
+        PublicKey::parse_slice(&parser.buf(0)?, None),
+        Signature::parse_standard_slice(&parser.buf(1)?),
+    ) {
+        (Ok(pk), Ok(sig)) => Ok(Secp256k1Hash {
+
+            pubkey_hash: None,
+            pubkey: Some(pk),
+            signature: Some(sig),
+        }),
+        _ => Err(err("Bad ASN1 secp256k1hash")),
     }
 }
 
@@ -219,4 +239,28 @@ fn parse_eval(parser: &mut Parser) -> R<Condition> {
 
 fn err(s: &str) -> ConditionDecodeError {
     ConditionDecodeError(s.into())
+}
+
+pub fn pad_fingerprint(v : &Vec<u8>,  cond_type : &ConditionType ) -> Vec<u8> {
+    match cond_type {
+        Secp256k1HashType => {
+            if v.len() < 32 {
+                let mut v_padded = vec![0; 32];
+                for i in 0..v.len() {
+                    v_padded[i] = v[i];
+                }
+                return v_padded;
+            }
+            v.to_vec()
+        },
+        _  => v.to_vec()
+    }
+}
+
+pub fn shrink_fingerprint(v : &Vec<u8>,  cond_type : &ConditionType ) -> Vec<u8> {
+    let fingerprint_truncated = match cond_type {
+        Secp256k1HashType => v[0..20].to_vec(),  // secp256k1hash is 20 bytes
+        _ => v[0..32].to_vec()
+    };
+    fingerprint_truncated
 }

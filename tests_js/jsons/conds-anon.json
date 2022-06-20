@@ -1,0 +1,13 @@
+[
+    {
+        "id": "case1",
+        "cond": {
+			"type":	"(anon)",
+			"fingerprint":	"ff66rHP4KxGz6nKw9hLKpQ7v1AfEni/MEIIoIMuR+R4",
+			"cost":	132096,
+			"subtypes":	32,
+			"cond_type":	2
+		},
+        "CondASN": "a22b80207dfebaac73f82b11b3ea72b0f612caa50eefd407c49e2fcc10822820cb91f91e810302040082020204"
+    } 
+]
