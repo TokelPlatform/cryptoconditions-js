@@ -44,6 +44,6 @@ To use the cryptoconditions wasm in browser:
 ```
 $ wasm-pack build --target nodejs
 $ cd pkg
-$ #check the version of the library in package.json
+$ #check the version and package name of the library in package.json
 $ npm publish --access=public
 ```
